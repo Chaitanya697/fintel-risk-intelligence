@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Fintel{% endblock %} · Financial Risk Intelligence Platform</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=ranade@300,400,500,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='court.css') }}">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230A101C'/%3E%3Cpath d='M32 14v34M22 50h20M17 20h30M17 20l-7 14h14zM47 20l-7 14h14z' stroke='%23C9A45C' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ url_for('home') }}">
+    {% include "_scales.html" %}
+    <span><span class="b1">FINTEL</span><br><span class="b2">Financial Risk Intelligence Platform</span></span>
+  </a>
+  {% set user = current_user() %}
+  {% if user %}
+  <nav class="nav">
+    <a href="{{ url_for('docket') }}" class="{{ 'active' if request.endpoint in ('docket','case') }}">Dashboard</a>
+    <a href="{{ url_for('new_case') }}" class="{{ 'active' if request.endpoint == 'new_case' }}">New Portfolio</a>
+    <a href="{{ url_for('records') }}" class="{{ 'active' if request.endpoint == 'records' }}">Architecture</a>
+    <span class="user">{{ user['username'] }}</span>
+    <form method="post" action="{{ url_for('logout') }}" style="margin:0"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit">Sign out</button></form>
+  </nav>
+  {% endif %}
+</header>
+{% block full %}
+<main class="wrap">
+  {% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}{% endwith %}
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}
+<footer class="foot">Fintel · Financial Risk Intelligence Platform · NIFTY50 data 2000–2021 (Kaggle) · Educational project, not investment advice</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

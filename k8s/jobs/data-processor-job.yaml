@@ -1,0 +1,19 @@
+# One-off job: S3 raw/ -> processed/ + models/ (re-run whenever the data or the model code changes)
+apiVersion: batch/v1
+kind: Job
+metadata: {name: data-processor, namespace: fintel}
+spec:
+  backoffLimit: 1
+  template:
+    metadata: {labels: {app: data-processor}}
+    spec:
+      restartPolicy: Never
+      imagePullSecrets: [{name: ecr-pull}]
+      containers:
+        - name: data-processor
+          image: __REGISTRY__/fintel-data-processor:__TAG__
+          env:
+            - {name: DATA_BACKEND, value: s3}
+            - {name: S3_BUCKET, valueFrom: {configMapKeyRef: {name: fintel-config, key: S3_BUCKET}}}
+            - {name: AWS_REGION, valueFrom: {configMapKeyRef: {name: fintel-config, key: AWS_REGION}}}
+          resources: {requests: {cpu: 500m, memory: 1Gi}, limits: {memory: 3Gi}}

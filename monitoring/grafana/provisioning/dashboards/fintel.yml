@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: fintel
+    folder: Fintel
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

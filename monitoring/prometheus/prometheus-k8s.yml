@@ -1,0 +1,8 @@
+# Prometheus config inside Kubernetes: discovers every pod behind the headless services
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: web
+    dns_sd_configs: [{names: ["web-headless.fintel.svc.cluster.local"], type: A, port: 8000}]
+  - job_name: risk-engine
+    dns_sd_configs: [{names: ["risk-engine-headless.fintel.svc.cluster.local"], type: A, port: 8001}]

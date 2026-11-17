@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}{{ code }}{% endblock %}
+{% block content %}
+<div class="empty" style="margin-top:40px"><div class="smallcaps">Error {{ code }}</div><h1 style="margin:14px 0">{{ 'Portfolio not found' if code == 404 else ('Bad request' if code == 400 else 'Something went wrong') }}</h1><p>{{ message }}</p><p style="margin-top:18px"><a class="btn ghost" href="{{ url_for('home') }}">Back to dashboard</a></p></div>
+{% endblock %}

@@ -1,0 +1,8 @@
+# Prometheus config for local docker compose
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: web
+    static_configs: [{targets: ["web:8000"]}]
+  - job_name: risk-engine
+    static_configs: [{targets: ["risk-engine:8001"]}]

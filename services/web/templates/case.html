@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}{{ case['name'] }}{% endblock %}
+{% block content %}
+<section class="caption">
+  <div class="court">Portfolio Risk Report</div>
+  <h1>{{ case['name'] }}</h1>
+  <div class="sub">Portfolio FIN-{{ '%04d' % case['id'] }} · Created {{ case['created_at']|datefmt }}{% if report %} · Market data as of {{ report.as_of|datefmt }}{% endif %}</div>
+  <div class="actions">
+    <a class="btn ghost small" href="{{ url_for('edit_case', case_id=case['id']) }}">Edit holdings</a>
+    <form method="post" action="{{ url_for('delete_case', case_id=case['id']) }}" onsubmit="return confirm('Delete this portfolio permanently?')" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn danger small" type="submit">Delete portfolio</button></form>
+  </div>
+</section>
+
+{% if not report %}
+<div class="empty" style="margin-top:30px"><div class="smallcaps">Analysis unavailable</div><h2 style="margin:12px 0">The risk analysis could not be loaded</h2>
+<p>{{ error }}</p>{% if detail %}<p class="muted" style="font-size:13px">{{ detail }}</p>{% endif %}
+<p style="margin-top:14px"><a class="btn ghost" href="">Try again</a></p></div>
+{% else %}
+{% set v = report.verdict %}{% set m = report.metrics %}
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="verdict"><span class="rn">I</span>Portfolio Overview</button>
+  <button class="tab" data-tab="evidence"><span class="rn">II</span>Risk Metrics</button>
+  <button class="tab" data-tab="findings"><span class="rn">III</span>Risk Explanation</button>
+  <button class="tab" data-tab="hearings"><span class="rn">IV</span>Stress Test</button>
+  <button class="tab" data-tab="precedents"><span class="rn">V</span>Historical Crises</button>
+  <button class="tab" data-tab="experts"><span class="rn">VI</span>Machine Learning</button>
+</nav>
+
+<!-- I. PORTFOLIO OVERVIEW -->
+<section class="panel active lvl-{{ v.level }}" id="verdict">
+  <div class="verdict">
+    <div class="seal" aria-label="Risk score {{ v.score|round|int }} out of 100, {{ v.level }} risk">
+      <svg viewBox="0 0 200 200"><defs><path id="ring" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
+        <circle cx="100" cy="100" r="96" fill="none" stroke="currentColor" stroke-width="3"/>
+        <circle cx="100" cy="100" r="90" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4"/>
+        <circle cx="100" cy="100" r="64" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text font-size="11" letter-spacing="3.2" fill="currentColor" font-family="Ranade, sans-serif" font-weight="700"><textPath href="#ring">PORTFOLIO RISK SCORE · FINTEL RISK ENGINE ·</textPath></text>
+      </svg>
+      <div class="score"><b class="num">{{ v.score|round|int }}</b><span>{{ v.level }} RISK</span></div>
+    </div>
+    <div>
+      <span class="ruling-tag">RISK SCORE {{ v.score|round|int }} / 100 · {{ v.level }}</span>
+      <p class="ruling">{{ v.summary }}</p>
+      <p>The score is the ensemble's estimate of how much riskier than the market this portfolio is likely to be over the next six months, combining three machine-learning models trained on 9,000 historical portfolios. Open <em>Risk Explanation</em> for the reasons and <em>Stress Test</em> for what a market fall would cost.</p>
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Portfolio value</div><div class="v">{{ report.value|inr }}</div><div class="s">{{ report.holdings|length }} holdings</div></div>
+    {% set d = m.diversification %}<div class="kpi {{ 'good' if d >= 65 else ('warn' if d >= 45 else 'bad') }}"><div class="k">Diversification</div><div class="v">{{ d|round|int }}%</div><div class="s">stocks, sectors &amp; co-movement</div></div>
+    {% set vr = m.volatility / m.market_volatility %}<div class="kpi {{ 'bad' if vr >= 1.35 else ('warn' if vr >= 1.1 else 'good') }}"><div class="k">Volatility</div><div class="v">{{ m.volatility|pct(0) }}</div><div class="s">a year · market {{ m.market_volatility|pct(0) }}</div></div>
+    <div class="kpi {{ 'bad' if m.max_drawdown >= 0.25 else ('warn' if m.max_drawdown >= 0.15 else 'good') }}"><div class="k">Maximum drawdown</div><div class="v">{{ m.max_drawdown|pct(0) }}</div><div class="s">worst fall, last 12 months</div></div>
+    <div class="kpi warn"><div class="k">Value at Risk (95%)</div><div class="v">{{ m.var_95_amount|inr }}</div><div class="s">1-in-20 bad day · {{ m.var_95|pct }}</div></div>
+    <div class="kpi"><div class="k">Expected shortfall</div><div class="v">{{ m.cvar_95_amount|inr }}</div><div class="s">average loss on those bad days</div></div>
+    <div class="kpi {{ 'warn' if m.beta >= 1.15 else '' }}"><div class="k">Beta</div><div class="v">{{ '%.2f'|format(m.beta) }}</div><div class="s">sensitivity to the market</div></div>
+    <div class="kpi"><div class="k">1-year return</div><div class="v">{{ m.avg_return|pct(0) }}</div><div class="s">annualised average</div></div>
+  </div>
+  <hr class="rule">
+  <div class="exhibit"><span class="tag">Performance</span><h3>Five-year record: portfolio vs NIFTY50 market</h3></div>
+  <svg class="chart" id="growthChart" role="img" aria-label="Portfolio value over five years compared with the market"></svg>
+  <div class="legend"><span><i style="background:var(--brass)"></i>This portfolio (rebalanced daily)</span><span><i style="background:var(--faint)"></i>Market (NIFTY50 equal-weight)</span><span class="muted">Worst fall in 5 years: {{ report.drawdown_5y|pct(0) }}</span></div>
+</section>
+
+<!-- II. RISK METRICS -->
+<section class="panel" id="evidence">
+  <div class="grid2">
+    <div class="card">
+      <div class="exhibit"><span class="tag">Sector concentration</span><h3>Sector exposure</h3></div>
+      {% for s in report.sector_exposure %}
+      <div class="bar-row"><span>{{ s.sector }}</span><div class="bar-track"><div class="bar-fill {{ 'hot' if s.weight >= 0.4 else ('warm' if s.weight >= 0.3 else '') }}" data-w="{{ (s.weight*100)|round(1) }}"></div></div><span class="pct">{{ s.weight|pct(0) }} · {{ s.amount|inr }}</span></div>
+      {% endfor %}
+    </div>
+    <div class="card">
+      <div class="exhibit"><span class="tag">Correlation</span><h3>Which stocks move together</h3></div>
+      {% if report.correlation.symbols|length > 1 and report.correlation.symbols|length <= 12 %}
+      <div class="scroll"><table class="heat" id="heat"></table></div>
+      {% endif %}
+      <table class="ledger" style="margin-top:12px"><tr><th>Pair</th><th class="r">Correlation</th></tr>
+      {% for p in report.correlation.top_pairs %}<tr><td><b>{{ p.a }}</b> ↔ <b>{{ p.b }}</b></td><td class="r" style="color:{{ 'var(--oxblood)' if p.corr >= 0.6 else 'var(--dim)' }}">{{ '%.2f'|format(p.corr) }}</td></tr>{% else %}<tr><td colspan="2">A single holding has no pairs.</td></tr>{% endfor %}</table>
+      <p style="margin-top:10px;font-size:13px">1.00 = always move together, 0 = unrelated. Above 0.60 is treated as high.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:20px">
+    <div class="exhibit"><span class="tag">Holdings</span><h3>Holdings ledger (last 12 months)</h3></div>
+    <div class="scroll"><table class="ledger">
+      <tr><th>Stock</th><th>Sector</th><th class="r">Amount</th><th class="r">Weight</th><th class="r">Volatility</th><th class="r">Beta</th><th class="r">1-yr return</th></tr>
+      {% for h in report.holdings %}
+      <tr><td><b>{{ h.symbol }}</b><br><span style="font-size:12.5px">{{ h.company }}</span></td><td>{{ h.sector }}</td><td class="r">{{ h.amount|inr }}</td><td class="r">{{ h.weight|pct }}</td><td class="r">{{ h.volatility|pct(0) }}</td><td class="r">{{ '%.2f'|format(h.beta) }}</td><td class="r" style="color:{{ 'var(--verdigris)' if h.return_1y >= 0 else '#E5848E' }}">{{ h.return_1y|pct(0) }}</td></tr>
+      {% endfor %}
+    </table></div>
+  </div>
+</section>
+
+<!-- III. RISK EXPLANATION -->
+<section class="panel" id="findings">
+  <p class="ruling" style="font-size:21px;margin-top:0">{{ v.summary }}</p>
+  <div class="charges">
+    {% for f in report.findings %}
+    <div class="charge"><span class="sev {{ f.severity }}">{{ {'high':'High risk','medium':'Medium risk','ok':'Good','info':'Info'}[f.severity] }}</span>
+      <div><h3>{{ f.title }}</h3><p>{{ f.detail }}</p></div></div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- IV. STRESS TEST -->
+<section class="panel" id="hearings">
+  <div class="exhibit"><span class="tag">Scenario simulator</span><h3>What if…? Select a scenario to estimate the impact</h3></div>
+  <div class="hearings" id="presetGrid">
+    {% for s in report.stress %}
+    <button class="hearing {{ 'active' if loop.first }}" data-i="{{ loop.index0 }}"><div class="n">{{ s.name }}</div><div class="l">−{{ s.loss|inr }}</div><div class="i">{{ s.impact_pct }}% · left with {{ s.new_value|inr }}</div></button>
+    {% endfor %}
+  </div>
+  <div class="card hearing-detail" id="presetDetail"></div>
+  <hr class="rule">
+  <div class="exhibit"><span class="tag">Custom scenario</span><h3>Build a custom scenario</h3></div>
+  <form class="card custom" id="customForm">
+    <div><label for="mkt">Whole market moves: <b id="mktV">-10%</b></label><input type="range" id="mkt" min="-50" max="20" step="1" value="-10"></div>
+    <div><label for="sec">Sector</label><select id="sec"><option value="">(none)</option>{% for s in sectors %}<option {{ 'selected' if s == 'IT' }}>{{ s }}</option>{% endfor %}</select></div>
+    <div><label for="secp">That sector moves: <b id="secV">-15%</b></label><input type="range" id="secp" min="-60" max="30" step="1" value="-15"></div>
+    <button class="btn" type="submit">Run stress test</button>
+  </form>
+  <div id="customOut"></div>
+</section>
+
+<!-- V. HISTORICAL CRISES -->
+<section class="panel" id="precedents">
+  <div class="exhibit"><span class="tag">Historical stress test</span><h3>How these holdings actually did in past crises</h3></div>
+  <p>Replayed with real NIFTY50 prices: today's weights, bought at the start of each crisis and held to the low point.</p>
+  <div class="card scroll"><table class="ledger">
+    <tr><th>Crisis</th><th>Period</th><th class="r">This portfolio</th><th class="r">Market</th><th class="r">Loss on {{ report.value|inr }}</th><th>Vs market</th></tr>
+    {% for h in report.history %}
+    <tr><td><b>{{ h.name }}</b>{% if h.proxied %}<br><span style="font-size:12px">{{ h.proxied|join(', ') }} not yet listed: market used as stand-in</span>{% endif %}</td>
+      <td>{{ h.start|datefmt }} → {{ h.end|datefmt }}</td>
+      <td class="r" style="color:{{ '#E5848E' if h.portfolio_pct < 0 else 'var(--verdigris)' }}">{{ h.portfolio_pct }}%</td>
+      <td class="r">{{ h.market_pct }}%</td><td class="r">{{ h.loss|inr if h.loss > 0 else '—' }}</td>
+      <td>{% if h.portfolio_pct < h.market_pct - 2 %}<span class="sev high" style="font-size:10px;padding:3px 7px">Fell harder</span>{% elif h.portfolio_pct > h.market_pct + 2 %}<span class="sev ok" style="font-size:10px;padding:3px 7px">Held up better</span>{% else %}<span class="sev info" style="font-size:10px;padding:3px 7px">In line</span>{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<!-- VI. MACHINE LEARNING -->
+<section class="panel" id="experts">
+  <div class="grid3">
+    {% for e in v.experts %}
+    <div class="expert lvl-{{ e.level }}"><div class="who">Model {{ loop.index }}</div><h3>{{ e.name }}</h3>
+      {% for lab, col in [('Low','var(--verdigris)'),('Medium','var(--amber)'),('High','var(--oxblood)')] %}
+      <div class="pbar"><span>{{ lab }}</span><span class="t"><i style="width:{{ (e.proba[loop.index0]*100)|round(1) }}%;background:{{ col }}"></i></span><span class="num">{{ (e.proba[loop.index0]*100)|round|int }}%</span></div>
+      {% endfor %}
+      <p style="margin:12px 0 0">Prediction: <b style="color:var(--lvl)">{{ e.score|round|int }} · {{ e.level }}</b></p>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card lvl-{{ v.level }}" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+    <div><div class="smallcaps">Ensemble prediction (average of the three)</div><h2 style="margin-top:6px;color:var(--lvl)">{{ v.score|round|int }} / 100 · {{ v.level }}</h2></div>
+    <div style="min-width:280px;flex:1;max-width:420px">{% for lab, col in [('Low','var(--verdigris)'),('Medium','var(--amber)'),('High','var(--oxblood)')] %}
+      <div class="pbar"><span>{{ lab }}</span><span class="t"><i style="width:{{ (v.proba[loop.index0]*100)|round(1) }}%;background:{{ col }}"></i></span><span class="num">{{ (v.proba[loop.index0]*100)|round|int }}%</span></div>{% endfor %}</div>
+  </div>
+  <hr class="rule">
+  <div class="exhibit"><span class="tag">Model features</span><h3>Where this portfolio stands among 9,000 historical portfolios</h3></div>
+  <div class="card scroll"><table class="ledger" id="evidenceTable"><tr><th>Feature</th><th class="r">This portfolio</th><th>Percentile vs historical portfolios</th><th class="r">Model importance</th></tr></table></div>
+  <p class="disclose">Model accuracy: on portfolios from 2017–2021 that the models never saw during training, the ensemble picked the correct risk class {{ (report.model.accuracy*100)|round|int }}% of the time ({{ (report.model.baseline*100)|round|int }}% by always guessing the most common class). Treat the risk score as an informed second opinion, not a guarantee. Model trained {{ report.model.trained_at|datefmt }} on data {{ report.model.data_from }} to {{ report.model.data_to }}.</p>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if report %}
+<script id="reportData" type="application/json">{{ report|tojson }}</script>
+<script>window.FINTEL = {caseId: {{ case['id'] }}, csrf: "{{ csrf_token() }}"};</script>
+<script src="{{ url_for('static', filename='case.js') }}"></script>
+{% endif %}
+{% endblock %}

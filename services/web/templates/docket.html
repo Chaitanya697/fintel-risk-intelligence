@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="smallcaps">Dashboard</div><h1 style="margin-top:8px">Your portfolios</h1>
+  <p style="margin-top:8px">Open a portfolio to see its risk score, risk metrics, explanation and stress tests.</p></div>
+  <a class="btn" href="{{ url_for('new_case') }}">+ New portfolio</a>
+</div>
+{% if cases %}
+<div class="cases">
+  {% for c in cases %}
+  <a class="casecard" href="{{ url_for('case', case_id=c.id) }}">
+    <div class="no">PORTFOLIO FIN-{{ '%04d' % c.id }}</div>
+    <h3>{{ c.name }}</h3>
+    <div class="chips">{% for s in c.symbols %}<span class="chip">{{ s }}</span>{% endfor %}{% if c.n > 6 %}<span class="chip">+{{ c.n - 6 }}</span>{% endif %}</div>
+    <div class="meta"><span>{{ c.n }} holding{{ 's' if c.n != 1 }} · <b class="num" style="color:var(--parchment);font-weight:500">{{ c.value|inr }}</b></span><span>{{ c.updated|datefmt }}</span></div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><h2>No portfolios yet</h2><p style="margin:10px 0 18px">Create your first portfolio to analyse its risk.</p><a class="btn" href="{{ url_for('new_case') }}">New portfolio</a></div>
+{% endif %}
+{% endblock %}

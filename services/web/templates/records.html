@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Architecture{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="smallcaps">System Architecture</div><h1 style="margin-top:8px">How Fintel works</h1>
+<p style="margin-top:8px">Data flow, AWS services, the machine-learning model and monitoring.</p></div>
+{% if grafana_url %}<a class="btn ghost" href="{{ grafana_url }}" target="_blank" rel="noopener">Open Grafana monitoring ↗</a>{% endif %}</div>
+
+<div class="card">
+  <div class="exhibit"><span class="tag">Project flow</span><h3>Request and data flow</h3></div>
+  <div class="flow"><span class="node">User</span><span class="arr">→</span><span class="node">Web (Flask)</span><span class="arr">→</span><span class="node">Risk Engine API</span><span class="arr">→</span><span class="node">Risk metrics</span><span class="arr">→</span><span class="node">Ensemble ML</span><span class="arr">→</span><span class="node">Stress tests</span><span class="arr">→</span><span class="node">Dashboard</span></div>
+  <div class="flow" style="margin-top:12px"><span class="node">Kaggle NIFTY50 CSVs</span><span class="arr">→</span><span class="node">S3 raw/</span><span class="arr">→</span><span class="node">Data Processor job</span><span class="arr">→</span><span class="node">S3 processed/ + models/</span><span class="arr">→</span><span class="node">Risk Engine</span></div>
+</div>
+
+<div class="grid2" style="margin-top:20px">
+  <div class="card">
+    <div class="exhibit"><span class="tag">AWS services</span><h3>AWS infrastructure</h3></div>
+    <table class="ledger">
+      <tr><td><b>Amazon S3</b></td><td>Raw dataset, processed data, trained model{% if card %}<br><span class="code">{{ card.storage }}</span>{% endif %}</td></tr>
+      <tr><td><b>Amazon EC2</b></td><td>Runs Jenkins and the k3s Kubernetes cluster</td></tr>
+      <tr><td><b>Amazon ECR</b></td><td>Docker images: web, risk-engine, data-processor</td></tr>
+      <tr><td><b>Kubernetes (k3s)</b></td><td>Web pod, 2 risk-engine pods, data-processor job, Prometheus, Grafana</td></tr>
+      <tr><td><b>Terraform</b></td><td>Creates S3, ECR, security group and EC2 as code</td></tr>
+      <tr><td><b>Jenkins</b></td><td>CI/CD: test → build → push to ECR → train → deploy</td></tr>
+      <tr><td><b>Prometheus + Grafana</b></td><td>Requests, response time, CPU, memory, ML predictions, errors</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="exhibit"><span class="tag">Machine learning</span><h3>The model</h3></div>
+    {% if card %}
+    <table class="ledger">
+      <tr><td>Dataset</td><td><b>{{ card.dataset }}</b></td></tr>
+      <tr><td>History</td><td><b>{{ card.data_from }} → {{ card.data_to }}</b>, {{ card.n_stocks }} stocks</td></tr>
+      <tr><td>Training portfolios</td><td><b>{{ card.n_samples }}</b> ({{ card.n_train }} train / {{ card.n_test }} test)</td></tr>
+      <tr><td>Label</td><td>{{ card.label }}</td></tr>
+      <tr><td>Test period</td><td>{{ card.test_period }}</td></tr>
+      <tr><td>Trained</td><td>{{ card.trained_at|datefmt }}</td></tr>
+    </table>
+    {% else %}<p>The risk engine is still loading. Refresh shortly.</p>{% endif %}
+  </div>
+</div>
+
+{% if card %}
+<div class="grid2" style="margin-top:20px">
+  <div class="card">
+    <div class="exhibit"><span class="tag">Accuracy</span><h3>Accuracy on unseen years</h3></div>
+    <table class="ledger"><tr><th>Model</th><th class="r">Accuracy</th><th class="r">Macro F1</th></tr>
+      {% for k, lab in [('random_forest','Random Forest'),('gradient_boosting','Gradient Boosting'),('xgboost','XGBoost'),('ensemble','Ensemble (average)')] %}
+      <tr><td><b>{{ lab }}</b></td><td class="r">{{ card.metrics[k].accuracy|pct }}</td><td class="r">{{ '%.3f'|format(card.metrics[k].macro_f1) }}</td></tr>{% endfor %}
+      <tr><td>Always guessing the most common class</td><td class="r">{{ card.metrics.baseline_majority_class.accuracy|pct }}</td><td></td></tr>
+    </table>
+    <p style="margin-top:10px;font-size:13.5px">Rank correlation between the ensemble's risk score and the risk that actually followed: <b style="color:var(--parchment)">{{ card.metrics.ensemble.spearman_score_vs_actual_risk }}</b>.</p>
+  </div>
+  <div class="card">
+    <div class="exhibit"><span class="tag">Model features</span><h3>What the models rely on</h3></div>
+    {% for f, w in card.feature_importance.items() %}
+    <div class="bar-row" style="grid-template-columns:170px 1fr 56px"><span>{{ f.replace('_',' ')|capitalize }}</span><div class="bar-track"><div class="bar-fill" style="width:{{ (w*100/ (card.feature_importance.values()|max) )|round(1) }}%"></div></div><span class="pct">{{ w|pct }}</span></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
